@@ -1,0 +1,18 @@
+[package]
+name = "rusty_platinum_utils"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+image = { git = "https://github.com/RunDevelopment/image", branch = "new-dds-decoder" }
+byteorder = "1.5.0"
+half = "2.4.1"
+rand = "0.9.0"
+winit = "0.28"
+three-d = { git = "https://github.com/asny/three-d", branch = "master", features = ["headless"]}
+
+[build-dependencies]
+cbindgen = "0.28.0"
