@@ -1,6 +1,6 @@
-use std::{collections::HashMap, sync::Arc, time::{Duration, Instant}};
+use std::{collections::HashMap, rc::Rc, sync::Arc, time::{Duration, Instant}};
 
-use rand::Rng;
+// use rand::Rng;
 use winit::{event_loop::EventLoop, window::WindowBuilder};
 use crate::mesh_data::SceneData;
 use three_d::*;
@@ -32,8 +32,8 @@ struct ModelInfo {
 	transform: Matrix4<f32>,
 }
 
-pub struct RenderState<'a> {
-	context: &'a WindowedContext,
+pub struct RenderState {
+	context: Rc<WindowedContext>,
 	camera: Camera,
 	models: HashMap<u32, ModelInfo>,
 	pub model_states: String,
@@ -43,12 +43,12 @@ pub struct RenderState<'a> {
 	yaw: f32,
 }
 
-impl<'a> RenderState<'a> {
-	pub fn new(context: &'a WindowedContext, width: u32, height: u32, scene_data: SceneData) -> Result<Self, String> {
-		let t1 = Instant::now();
-		let mut tex_times: Vec<Duration> = Vec::new();
-		let mut mat_times: Vec<Duration> = Vec::new();
-		let mut gm_times: Vec<Duration> = Vec::new();
+impl RenderState {
+	pub fn new(context: Rc<WindowedContext>, width: u32, height: u32, scene_data: SceneData) -> Result<Self, String> {
+		// let t1 = Instant::now();
+		// let mut tex_times: Vec<Duration> = Vec::new();
+		// let mut mat_times: Vec<Duration> = Vec::new();
+		// let mut gm_times: Vec<Duration> = Vec::new();
 		let mut models = HashMap::new();
 		let mut model_states = String::new();
 		let mut bounding_box = AxisAlignedBoundingBox::EMPTY;
@@ -64,11 +64,11 @@ impl<'a> RenderState<'a> {
 				..Default::default()
 			};
 		
-			let sub_t1 = Instant::now();
-			let albedo_texture = lookup_texture(context, mesh_data.albedo_texture_id, &mut textures, &scene_data.textures);
-			let normal_texture = lookup_texture(context, mesh_data.normal_texture_id, &mut textures, &scene_data.textures);
-			tex_times.push(sub_t1.elapsed());
-			let sub_t1 = Instant::now();
+			// let sub_t1 = Instant::now();
+			let albedo_texture = lookup_texture(&context, mesh_data.albedo_texture_id, &mut textures, &scene_data.textures);
+			let normal_texture = lookup_texture(&context, mesh_data.normal_texture_id, &mut textures, &scene_data.textures);
+			// tex_times.push(sub_t1.elapsed());
+			// let sub_t1 = Instant::now();
 			let material = Mat {
 				// albedo: _random_color(),
 				albedo_texture,
@@ -76,9 +76,9 @@ impl<'a> RenderState<'a> {
 				alpha_cutout: if mesh_data.uses_transparency { Some(0.5) } else { None },
 				..Default::default()
 			};
-			mat_times.push(sub_t1.elapsed());
+			// mat_times.push(sub_t1.elapsed());
 		
-			let sub_t1 = Instant::now();
+			// let sub_t1 = Instant::now();
 			let mut model = Gm::new(Mesh::new(&context, &cpu_mesh), material);
 			if mesh_data.should_be_visible {
 				model.set_transformation(Matrix4::from(mesh_data.transform));
@@ -91,7 +91,7 @@ impl<'a> RenderState<'a> {
 				transform: Matrix4::from(mesh_data.transform),
 			};
 			models.insert(i as u32, model_info);
-			gm_times.push(sub_t1.elapsed());
+			// gm_times.push(sub_t1.elapsed());
 
 			model_states.push_str(&format!("{},{},{}\n", i, mesh_data.name, mesh_data.should_be_visible));
 		}
@@ -99,9 +99,9 @@ impl<'a> RenderState<'a> {
 		if bounding_box.is_empty() {
 			bounding_box = AxisAlignedBoundingBox::new_with_positions(&[vec3(-1.0, -1.0, -1.0), vec3(1.0, 1.0, 1.0)]);
 		}
-		let t2 = Instant::now();
-		let tex_time = tex_times.iter().sum::<Duration>();
-		println!("create models: {:?} (tex: {:?}, mat: {:?}, gm: {:?})", t2.duration_since(t1), tex_time, mat_times.iter().sum::<Duration>(), gm_times.iter().sum::<Duration>());
+		// let t2 = Instant::now();
+		// let tex_time = tex_times.iter().sum::<Duration>();
+		// println!("create models: {:?} (tex: {:?}, mat: {:?}, gm: {:?})", t2.duration_since(t1), tex_time, mat_times.iter().sum::<Duration>(), gm_times.iter().sum::<Duration>());
 
 		let ambient_light = AmbientLight::new(&context, 0.3, Srgba::WHITE);
 		let directional_light = DirectionalLight::new(&context, 3.0, Srgba::WHITE, vec3(-1.0, -1.0, -1.0));
@@ -237,15 +237,15 @@ impl<'a> RenderState<'a> {
 	}
 }
 
-fn _random_color() -> Srgba {
-    let mut rng = rand::rng();
-    Srgba::new(
-        rng.random_range(0..255),
-        rng.random_range(0..255),
-        rng.random_range(0..255),
-        255,
-    )
-}
+// fn _random_color() -> Srgba {
+//     let mut rng = rand::rng();
+//     Srgba::new(
+//         rng.random_range(0..255),
+//         rng.random_range(0..255),
+//         rng.random_range(0..255),
+//         255,
+//     )
+// }
 
 fn tex_data_to_tex2d(context: &Context, tex_data: crate::mesh_data::TextureData) -> Result<Texture2D, String> {
 	let pixel_buffer = tex_data.bytes

@@ -1,16 +1,16 @@
-use std::{collections::{HashMap, HashSet}, fs::File, io::{stdout, BufReader, Read, Seek}, ops, slice};
-use std::io::{self, Write};
+use std::{collections::HashMap, io::{stdout, Read, Seek}, ops};
+use std::io::Write;
 
-use image::{self, codecs::dds::DdsDecoder, ImageBuffer, ImageDecoder, Rgba};
+use image::{codecs::dds::DdsDecoder, ImageDecoder};
 use three_d::{Matrix4, SquareMatrix, Vector2, Vector3, Vector4};
 
-use crate::{byte_stream::ByteReader, mesh_data::{SceneData, TextureData}, wta_wtp::WtaWtp};
+use crate::{byte_stream::ByteReader, mesh_data::TextureData, wta_wtp::WtaWtp};
 use crate::mesh_data::MeshData;
 
-pub fn read_wmb_na<R: Read + Seek>(
+pub fn read_wmb_na<R1: Read + Seek, R2: Read + Seek>(
 	name: &str,
-	reader: &mut ByteReader<R>,
-	wta_wtp: &mut Option<WtaWtp<BufReader<File>>>,
+	reader: &mut ByteReader<R1>,
+	wta_wtp: &mut Option<WtaWtp<R2>>,
 	textures: &mut HashMap<u32, TextureData>,
 ) -> Result<Vec<MeshData>, String> {
 	let wmb = Wmb::read(reader)?;
@@ -434,7 +434,7 @@ impl BoneIndexTranslateTable {
 		}
 
 		let mut second_level = Vec::new();
-		for i in 0..j*16 {
+		for _ in 0..j*16 {
 			second_level.push(reader.read_i16()?);
 		}
 
@@ -446,7 +446,7 @@ impl BoneIndexTranslateTable {
 		}
 
 		let mut third_level = Vec::new();
-		for i in 0..k*16 {
+		for _ in 0..k*16 {
 			third_level.push(reader.read_i16()?);
 		}
 
@@ -886,7 +886,7 @@ struct Material {
 
 impl Material {
 	fn read<R: Read + Seek>(reader: &mut ByteReader<R>) -> Result<Self, String> {
-		let unknown0 = [
+		let _unknown0 = [
 			reader.read_u16()?,
 			reader.read_u16()?,
 			reader.read_u16()?,
@@ -895,7 +895,7 @@ impl Material {
 		let offset_name = reader.read_u32()?;
 		let offset_shader_name = reader.read_u32()?;
 		let offset_technique_name = reader.read_u32()?;
-		let unknown1 = reader.read_u32()?;
+		let _unknown1 = reader.read_u32()?;
 		let offset_textures = reader.read_u32()?;
 		let num_textures = reader.read_u32()?;
 		let offset_parameter_groups = reader.read_u32()?;
@@ -1128,9 +1128,9 @@ fn mask_map_swizzle(pixel: &mut[u8]) {
     pixel[1] = 255 - pixel[1];
 }
 
-fn try_add_texture(
+fn try_add_texture<F: Read + Seek>(
 	textures: &mut HashMap<u32, TextureData>,
-	wta_wtp: &mut WtaWtp<BufReader<File>>,
+	wta_wtp: &mut WtaWtp<F>,
 	texture_id: Option<u32>,
 	swizzle: Option<&dyn Fn(&mut[u8]) -> ()>,
 ) -> () {

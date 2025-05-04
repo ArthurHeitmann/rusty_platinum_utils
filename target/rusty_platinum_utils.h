@@ -6,12 +6,21 @@
 #define SceneData void
 #define WindowedContext void
 #define RenderState void
+#define Rc_WindowedContext void
 
-SceneData *rpu_load_wmb(const char *wmb_path);
+SceneData *rpu_load_wmb_from_path(const char *wmb_path);
 
-WindowedContext *rpu_new_context(void);
+SceneData *rpu_load_wmb_from_bytes(const char *name,
+                                   const uint8_t *wmb,
+                                   size_t wmb_size,
+                                   const uint8_t *wta_wtb,
+                                   size_t wta_wtb_size,
+                                   const uint8_t *wtp,
+                                   size_t wtp_size);
 
-RenderState *rpu_new_renderer(WindowedContext *context,
+Rc_WindowedContext *rpu_new_context(void);
+
+RenderState *rpu_new_renderer(Rc_WindowedContext *context,
                               uint32_t width,
                               uint32_t height,
                               SceneData *scene_data);
@@ -39,3 +48,7 @@ void rpu_auto_set_target(RenderState *state);
 void rpu_set_model_visibility(RenderState *state, uint32_t model_id, bool visibility);
 
 const uint32_t *rpu_get_model_states(RenderState *state);
+
+void *malloc(size_t size);
+
+void free(void *ptr);

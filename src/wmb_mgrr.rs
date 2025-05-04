@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, HashSet}, fs::File, io::{stdout, BufReader, Cursor, Read, Seek}, ops};
+use std::{collections::{HashMap, HashSet}, io::{stdout, Cursor, Read, Seek}, ops};
 use std::io::Write;
 
 use image::{codecs::dds::DdsDecoder, EncodableLayout, ImageDecoder, ImageReader};
@@ -7,10 +7,9 @@ use three_d::{Matrix4, SquareMatrix, Vector2, Vector3, Vector4};
 use crate::{byte_stream::ByteReader, mesh_data::TextureData, wta_wtp::WtaWtp};
 use crate::mesh_data::MeshData;
 
-pub fn read_wmb_mgrr<R: Read + Seek>(
-	name: &str,
-	reader: &mut ByteReader<R>,
-	wta_wtp: &mut Option<WtaWtp<BufReader<File>>>,
+pub fn read_wmb_mgrr<R1: Read + Seek, R2: Read + Seek>(
+	reader: &mut ByteReader<R1>,
+	wta_wtp: &mut Option<WtaWtp<R2>>,
 	textures: &mut HashMap<u32, TextureData>,
 ) -> Result<Vec<MeshData>, String> {
 	let wmb = Wmb::read(reader)?;
@@ -240,7 +239,7 @@ impl Wmb {
 		let mut meshes = Vec::with_capacity(header.num_meshes as usize);
 		if header.offset_meshes != 0 {
 			reader.seek(header.offset_meshes as u64)?;
-			for i in 0..header.num_meshes {
+			for _ in 0..header.num_meshes {
 				meshes.push(Mesh::read(reader)?);
 			}
 		}
@@ -382,7 +381,7 @@ impl BoneIndexTranslateTable {
 		}
 
 		let mut second_level = Vec::new();
-		for i in 0..j*16 {
+		for _ in 0..j*16 {
 			second_level.push(reader.read_i16()?);
 		}
 
@@ -394,7 +393,7 @@ impl BoneIndexTranslateTable {
 		}
 
 		let mut third_level = Vec::new();
-		for i in 0..k*16 {
+		for _ in 0..k*16 {
 			third_level.push(reader.read_i16()?);
 		}
 
@@ -426,11 +425,8 @@ impl Vertex {
 		];
 		let normal = reader.read_u32()? as i64;
 		let mut normal_x = normal & ((1 << 11) - 1);
-		let mut normal_y = (normal >> 11) & ((1 << 11) - 1);
-		let mut normal_z = normal >> 22;
-		normal_x = normal & ((1 << 11) - 1);
-        normal_y = (normal >> 11) & ((1 << 11) - 1);
-        normal_z = normal >> 22;
+        let mut normal_y = (normal >> 11) & ((1 << 11) - 1);
+        let mut normal_z = normal >> 22;
         if normal_x & (1 << 10) != 0 {
             normal_x &= !(1 << 10);
             normal_x -= 1 << 10;
@@ -751,11 +747,11 @@ impl Material {
 	fn read<R: Read + Seek>(reader: &mut ByteReader<R>) -> Result<Self, String> {
 		let offset_shader_name = reader.read_u32()?;
 		let offset_textures = reader.read_u32()?;
-		let u_a = reader.read_u32()?;
+		let _u_a = reader.read_u32()?;
 		let offset_parameters = reader.read_u32()?;
-		let num_textures = reader.read_u16()?;
-		let u_c = reader.read_u16()?;
-		let u_d = reader.read_u16()?;
+		let _num_textures = reader.read_u16()?;
+		let _u_c = reader.read_u16()?;
+		let _u_d = reader.read_u16()?;
 		let num_parameters = reader.read_u16()?;
 		let pos = reader.position()?;
 
@@ -792,7 +788,7 @@ impl Material {
 			.map(|texture| texture.id)
 	}
 
-	fn alpha_is_transparency(&self, wta_wtp: &mut Option<WtaWtp<BufReader<File>>>, textures: &Vec<Texture>) -> bool {
+	fn alpha_is_transparency<F: Read + Seek>(&self, wta_wtp: &mut Option<WtaWtp<F>>, textures: &Vec<Texture>) -> bool {
 		if let Some(wta_wtp) = wta_wtp {
 			if self.shader_name.len() >= 5 {
 				const ORGANIC_PREFIXES: [&str; 3] = ["eye", "har", "skn"];
@@ -911,9 +907,9 @@ fn decompress_dds(bytes: Vec<u8>, swizzle: Option<&dyn Fn(&mut[u8]) -> ()>) -> R
 	}
 }
 
-fn try_add_texture(
+fn try_add_texture<F: Read + Seek>(
 	textures: &mut HashMap<u32, TextureData>,
-	wta_wtp: &mut WtaWtp<BufReader<File>>,
+	wta_wtp: &mut WtaWtp<F>,
 	texture_id: Option<u32>,
 	swizzle: Option<&dyn Fn(&mut[u8]) -> ()>,
 ) -> () {

@@ -1,14 +1,13 @@
-use std::{collections::HashMap, fs::File, io::{BufReader, Cursor, Read, Seek}};
+use std::{collections::HashMap, io::{Cursor, Read, Seek}};
 
 use three_d::Matrix4;
 
 use crate::{byte_stream::ByteReader, mesh_data::{MeshData, TextureData}, wmb::read_wmb, wta_wtp::WtaWtp};
 
 
-pub fn read_scr_mgrr<R: Read + Seek>(
-	_name: &str,
-	reader: &mut ByteReader<R>,
-	wta_wtp: &mut Option<WtaWtp<BufReader<File>>>,
+pub fn read_scr_mgrr<R1: Read + Seek, R2: Read + Seek>(
+	reader: &mut ByteReader<R1>,
+	wta_wtp: &mut Option<WtaWtp<R2>>,
 	textures: &mut HashMap<u32, TextureData>,
 ) -> Result<Vec<MeshData>, String> {
 	reader.seek(6)?;

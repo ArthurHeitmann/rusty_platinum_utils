@@ -10,9 +10,15 @@ crate-type = ["cdylib"]
 image = { git = "https://github.com/RunDevelopment/image", branch = "new-dds-decoder" }
 byteorder = "1.5.0"
 half = "2.4.1"
-rand = "0.9.0"
+# rand = "0.9.0"
 winit = "0.28"
 three-d = { git = "https://github.com/asny/three-d", branch = "master", features = ["headless"]}
+getrandom = { version = "0.2.15", features = ["js"] }
+wasm-bindgen = "0.2.100"
+console_error_panic_hook = "0.1.7"
 
 [build-dependencies]
 cbindgen = "0.28.0"
+
+[target.wasm32-unknown-unknown]
+rustflags = ['--cfg', 'getrandom_backend="wasm_js"']

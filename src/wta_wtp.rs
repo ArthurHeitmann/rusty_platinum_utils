@@ -1,11 +1,11 @@
-use std::{collections::HashMap, fs::File, io::{BufReader, Read, Seek, SeekFrom}, path::{Path, PathBuf}};
+use std::{collections::HashMap, fs::File, io::{BufReader, Cursor, Read, Seek, SeekFrom}, path::Path};
 
 use crate::byte_stream::ByteReader;
 
 
 pub struct WtaWtp<F: Read + Seek> {
 	id_offsets: HashMap<u32, TexturePos>,
-	wtp_file: F,
+	wtp_file: BufReader<F>,
 }
 
 pub struct TexturePos {
@@ -19,7 +19,7 @@ pub enum WtaBasenameExt {
 	No,
 }
 
-impl WtaWtp<BufReader<File>> {
+impl WtaWtp<File> {
 	pub fn from_wmb(wmb_path_orig: &String, basename_ext: WtaBasenameExt) -> Result<Self, String> {
 		let wmb_path = Path::new(wmb_path_orig);
 		
@@ -61,9 +61,11 @@ impl WtaWtp<BufReader<File>> {
 		}
 
 		let id_offsets = if wta_exists {
-			read_wta(&wta_path)?
+			let wta_file = File::open(wta_path).map_err(|e| e.to_string())?;
+			read_wta(BufReader::new(wta_file))?
 		} else {
-			read_wta(&wtb_path)?
+			let wtb_file = File::open(&wtb_path).map_err(|e| e.to_string())?;
+			read_wta(BufReader::new(wtb_file))?
 		};
 
 		let wtp_file = if wta_exists {
@@ -73,9 +75,33 @@ impl WtaWtp<BufReader<File>> {
 		};
 		let wtp_reader = BufReader::new(wtp_file);
 
-		Ok(Self { id_offsets, wtp_file: wtp_reader })
+		Ok(WtaWtp { id_offsets, wtp_file: wtp_reader })
 	}
+}
+
+impl<'a> WtaWtp<Cursor<&'a[u8]>> {
+	pub fn from_bytes(wta_wtb: Option<&'a[u8]>, wtp: Option<&'a[u8]>) -> Result<Self, String> {
+		let (id_offsets, wtp_reader) = match (wta_wtb, wtp) {
+			(Some(wta), Some(wtp)) => {
+				let wta_cursor = Cursor::new(wta);
+				let wtp_cursor = Cursor::new(wtp);
+				let id_offsets = read_wta(BufReader::new(wta_cursor))?;
+				(id_offsets, BufReader::new(wtp_cursor))
+			}
+			(Some(wta), None) => {
+				let wta_cursor = Cursor::new(&wta);
+				let id_offsets = read_wta(BufReader::new(wta_cursor))?;
+				let wtp_cursor = Cursor::new(wta);
+				(id_offsets, BufReader::new(wtp_cursor))
+			}
+			_ => return Err("WTA or WTP file not found".to_string()),
+		};
+
+		Ok(WtaWtp { id_offsets, wtp_file: wtp_reader })
+	}
+}
 	
+impl<F: Read + Seek> WtaWtp<F> {
 	pub fn get_texture(&mut self, id: u32) -> Option<Vec<u8>> {
 		let pos = self.id_offsets.get(&id)?;
 		self.wtp_file.seek(SeekFrom::Start(pos.offset as u64)).ok()?;
@@ -89,8 +115,7 @@ impl WtaWtp<BufReader<File>> {
 	}
 }
 
-fn read_wta(wta_path: &PathBuf) -> Result<HashMap<u32, TexturePos>, String> {
-	let wta_file = File::open(wta_path).map_err(|e| e.to_string())?;
+fn read_wta<R: Read + Seek>(wta_file: BufReader<R>) -> Result<HashMap<u32, TexturePos>, String> {
 	let mut wta_reader = ByteReader::new(BufReader::new(wta_file));
 	wta_reader.seek(8)?;
 	let tex_count = wta_reader.read_i32()? as u64;

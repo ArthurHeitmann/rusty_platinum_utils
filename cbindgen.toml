@@ -6,7 +6,10 @@ sys_includes = ["stdint.h", "stdbool.h"]
 no_includes = true
 usize_is_size_t = true
 
-after_includes = "\n#define SceneData void\n#define WindowedContext void\n#define RenderState void"
+after_includes = "\n#define SceneData void\n#define WindowedContext void\n#define RenderState void\n#define Rc_WindowedContext void"
+
+[export]
+exclude = ["Rc_WindowedContext"]
 
 [fn]
 # args = "horizontal"
